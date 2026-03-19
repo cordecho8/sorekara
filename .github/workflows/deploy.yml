@@ -1,0 +1,33 @@
+name: Deploy to Cloudflare Pages
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Inject today's build date into sw.js so the cache key
+      # auto-busts on every push — users always get the latest version.
+      - name: Inject build date
+        run: |
+          BUILD_DATE=$(date -u +"%Y%m%d%H%M%S")
+          echo "Build date: $BUILD_DATE"
+          sed -i "s/__BUILD_DATE__/$BUILD_DATE/g" sw.js
+          # Also stamp the HTML with version for the UI
+          sed -i "s/__BUILD_DATE__/$BUILD_DATE/g" index.html
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy . --project-name=sorekara --commit-dirty=true
