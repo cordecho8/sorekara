@@ -9,6 +9,8 @@
 <meta name="theme-color" content="#0e0e0e">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
+<!-- BUILD_DATE injected by GitHub Action on each deploy -->
+<meta name="build-date" content="__BUILD_DATE__">
 <title>それから · Sorekara</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Shippori+Mincho+B1:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -127,8 +129,8 @@ nav {
 
 /* Hero header */
 .home-hero {
-  padding: 28px 20px 20px;
-  position: relative; overflow: hidden;
+  padding: 20px 20px 18px;
+  position: relative; overflow: visible;
 }
 .home-hero::before {
   content: ''; position: absolute; inset: 0;
@@ -136,20 +138,26 @@ nav {
     radial-gradient(ellipse at 85% 0%, rgba(197,48,48,0.11) 0%, transparent 55%),
     radial-gradient(ellipse at 10% 90%, rgba(74,114,153,0.06) 0%, transparent 50%);
   pointer-events: none;
+  /* clip the gradient but not the children */
+  border-radius: 0;
 }
-/* Decorative kanji watermark */
+/* Decorative kanji watermark — clipped to its own pseudo */
 .home-hero::after {
-  content: '学'; position: absolute; right: -4px; top: -8px;
-  font-size: 130px; line-height: 1;
+  content: '学'; position: absolute; right: 16px; top: 0px;
+  font-size: 110px; line-height: 1;
   color: rgba(255,255,255,0.018);
   font-family: 'Noto Sans JP'; font-weight: 700;
   pointer-events: none; user-select: none;
+  /* Don't let watermark push layout */
+  z-index: 0;
 }
 
 /* Top row: greeting + streak hero */
 .hero-top {
   display: flex; align-items: flex-start; justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
+  /* Ensure streak block never clips */
+  gap: 12px;
 }
 .hero-greeting {
   font-size: 10px; color: var(--ink3); letter-spacing: 1.5px;
@@ -161,12 +169,15 @@ nav {
 }
 .hero-title em { color: var(--washi); font-style: normal; }
 
-/* Streak block — hero number */
+/* Streak block — hero number, never clips */
 .streak-block {
   display: flex; flex-direction: column; align-items: center;
   background: var(--vermilA); border: 1px solid rgba(197,48,48,0.22);
-  border-radius: 14px; padding: 10px 14px; flex-shrink: 0; min-width: 64px;
-  position: relative;
+  border-radius: 14px; padding: 10px 12px; flex-shrink: 0;
+  min-width: 62px; min-height: 80px; justify-content: center;
+  position: relative; z-index: 1;
+  /* Prevent any ancestor overflow from clipping */
+  isolation: isolate;
 }
 .streak-block::before {
   content: ''; position: absolute; inset: 0; border-radius: 13px;
@@ -174,15 +185,16 @@ nav {
   pointer-events: none;
 }
 .streak-num {
-  font-size: 32px; font-weight: 700; font-family: 'DM Mono', monospace;
+  font-size: 30px; font-weight: 700; font-family: 'DM Mono', monospace;
   color: var(--vermil2); line-height: 1; position: relative;
 }
 .streak-fire {
-  font-size: 11px; margin-bottom: 2px;
+  font-size: 14px; margin-bottom: 3px;
 }
 .streak-lbl {
-  font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase;
-  color: var(--vermil2); opacity: 0.7; font-weight: 600; position: relative;
+  font-size: 7.5px; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--vermil2); opacity: 0.7; font-weight: 600;
+  position: relative; margin-top: 3px; white-space: nowrap;
 }
 
 /* Progress bar strip */
@@ -1064,6 +1076,7 @@ nav {
   <div style="padding:24px 20px 14px">
     <h1 style="font-family:'Shippori Mincho B1',serif;font-size:23px;font-weight:500">バックアップ</h1>
     <p style="font-size:11.5px;color:var(--ink2);margin-top:4px">Export & restore your SRS progress</p>
+    <div id="versionInfo" style="margin-top:8px;font-size:10px;color:var(--ink3);font-family:'DM Mono',monospace;display:flex;gap:14px;flex-wrap:wrap"></div>
   </div>
 
   <div style="padding:0 16px;display:flex;flex-direction:column;gap:10px">
@@ -1180,6 +1193,17 @@ window.onerror=function(m,s,l){document.body.innerHTML='<div style="background:#
 // ════════════════════════════════════════════════
 
 const VOCAB = [
+// ─────────────────────────────────────────────────────────────────────────────
+// HOW TO ADD NEW WORDS SAFELY:
+//   • Add entries anywhere — beginning, middle, or end of this array.
+//   • SRS progress is keyed by the 'jp' field (Japanese text), NOT by position.
+//     Your existing card intervals, ease factors, and review history are safe.
+//   • On first open after adding words the app automatically:
+//       1. Detects the new vocab count
+//       2. Clears only the stale daily-picks cache (refreshes at next open)
+//       3. Cleans the legacy jp_known list of any orphans
+//   • The only rule: each 'jp' value must be unique across the whole array.
+// ─────────────────────────────────────────────────────────────────────────────
   {jp:'こんにちは',rom:'konnichiwa',en:'hello / good afternoon',cat:'GREETING',mem:{type:'phonetic',hint:'Sounds like "kon-nee-chee-wa" — imagine a Japanese person saying "come neat, eh?" as a greeting 😄',loan:null,zh:null},ex:[{jp:'こんにちは！お元気ですか？',rom:'Konnichiwa! O-genki desu ka?',en:'Hello! How are you?'}]},
   {jp:'おはようございます',rom:'ohayou gozaimasu',en:'good morning',cat:'GREETING',mem:{type:'phonetic',hint:'"Ohio gozaimasu" — sounds just like the US state Ohio! Imagine waking up in Ohio every morning.',loan:null,zh:null},ex:[{jp:'おはようございます！',rom:'Ohayou gozaimasu!',en:'Good morning!'}]},
   {jp:'こんばんは',rom:'konbanwa',en:'good evening',cat:'GREETING',mem:{type:'phonetic',hint:'"Kon-BAN-wa" — you say this at night when there\'s a BAN on sunlight. The "ban" = evening/night.',loan:null,zh:null},ex:[]},
@@ -3076,7 +3100,7 @@ function lsSet(k, v) {
 }
 
 // Load all keys from IndexedDB into cache before app starts
-const ALL_KEYS = ['jp_srs','jp_known','jp_kana','jp_scenes','jp_streak','jp_last_active','jp_history','jp_total_reviews','jp_google_tts_key'];
+const ALL_KEYS = ['jp_srs','jp_known','jp_kana','jp_scenes','jp_streak','jp_last_active','jp_history','jp_total_reviews','jp_google_tts_key','jp_notif_time','jp_notif_enabled','jp_vocab_count','jp_last_export'];
 function loadAllIntoCache() {
   return openDB().then(() => {
     return Promise.all(ALL_KEYS.map(k =>
@@ -3165,15 +3189,196 @@ function getDueCards() {
   });
 }
 
-function getNewCards() {
+// ════════════════════════════════════════════════
+//  SMART PROGRESSION ENGINE
+//  Replaces the naive unseen.slice(0,8) approach.
+//
+//  Philosophy (mirrors actual Japanese pedagogy):
+//  1. Staged unlocking — high-utility categories first,
+//     domain vocab unlocks only after foundations are set
+//  2. Balanced daily batch — spread across category types
+//     so each day builds multiple skill areas at once
+//  3. Grammar interleaved — one structural word per day
+//     unlocks understanding of everything else
+//  4. Seed-stable — same 8 words all day, consistent
+//     "today's words" experience
+// ════════════════════════════════════════════════
+
+// Tier 1: foundations — always available
+// Tier 2: daily life — unlocks after 40 Tier 1 words seen
+// Tier 3: situational — unlocks after 120 words seen
+// Tier 4: advanced domain — unlocks after 300 words seen
+const PROGRESSION_TIERS = [
+  {
+    tier: 1,
+    unlockAt: 0,
+    cats: ['CORE','ESSENTIAL','GREETING','EXPRESSION'],
+  },
+  {
+    tier: 2,
+    unlockAt: 40,
+    cats: ['VERB','FOOD','EVERYDAY','TIME','TRANSPORT','NUMBER','DIRECTION','EMOTION'],
+  },
+  {
+    tier: 3,
+    unlockAt: 120,
+    cats: ['ADJ','NAADJ','ADVERB','PLACES','SHOPPING','BODY','FAMILY','HEALTH','NATURE','COLOR','GRAMMAR','CONJUNCTION'],
+  },
+  {
+    tier: 4,
+    unlockAt: 300,
+    cats: ['WORK','SCHOOL','TECH','HOBBY','SOCIETY','WEATHER','HOUSING','MEDICAL','CLOTHING','ACCOMMODATION','CONCEPT','PERSONALITY','COMMUNICATION','COUNTER','DAY','SEASON','MONTH','NOUN'],
+  },
+];
+
+// Within each category, prefer words in this order of importance
+// (words not in this list come after all listed ones)
+const CATEGORY_PRIORITY = {
+  VERB:       ['する','ある','いる','来る','行く','食べる','飲む','見る','聞く','話す','書く','読む','買う','使う','分かる','知る','思う','言う','来る','帰る'],
+  CORE:       ['これ','それ','あれ','ここ','そこ','あそこ','私','あなた','彼','彼女','人','日本','日本語','何','誰','どこ','いつ','どう','なぜ','仲間'],
+  ESSENTIAL:  ['はい','いいえ','ありがとう','すみません','ください','おねがいします','どうぞ','大丈夫','わかりました'],
+  GRAMMAR:    ['は','が','を','に','で','と','も','の','から','まで','ように','ために','によって','について','として','として'],
+  CONJUNCTION:['でも','そして','だから','しかし','または','また','つまり','さらに'],
+  EXPRESSION: ['おはよう','こんにちは','こんばんは','さようなら','いただきます','ごちそうさま','お疲れ様','よろしく'],
+};
+
+function getSmartNewCards() {
   const srs = loadSRS();
-  // Unseen cards (never studied)
-  const unseen = VOCAB.filter(w => getSRSCard(srs, w.jp).reps === 0);
-  // How many new cards already introduced today
   const todayKey = 'jp_new_today_' + todayStr();
   const seenToday = parseInt(lsGet(todayKey, '0')) || 0;
   const remaining = Math.max(0, NEW_CARDS_PER_DAY - seenToday);
-  return unseen.slice(0, remaining);
+  if (remaining === 0) return [];
+
+  // Count total studied words to determine tier unlock
+  const studiedCount = VOCAB.filter(w => getSRSCard(srs, w.jp).reps > 0).length;
+
+  // Build set of unseen jp values
+  const unseenSet = new Set(
+    VOCAB.filter(w => getSRSCard(srs, w.jp).reps === 0).map(w => w.jp)
+  );
+
+  // Determine which tiers are unlocked
+  const unlockedCats = new Set();
+  for (const tier of PROGRESSION_TIERS) {
+    if (studiedCount >= tier.unlockAt) {
+      tier.cats.forEach(c => unlockedCats.add(c));
+    }
+  }
+
+  // Fallback: if somehow no cats unlocked (fresh install), unlock tier 1
+  if (unlockedCats.size === 0) {
+    PROGRESSION_TIERS[0].cats.forEach(c => unlockedCats.add(c));
+  }
+
+  // Build a stable seed from today's date so same 8 words show all day
+  const today = todayStr();
+  const seed = [...today].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+  // Simple seeded shuffle — deterministic for the day
+  function seededShuffle(arr, s) {
+    const a = [...arr];
+    let r = s;
+    for (let i = a.length - 1; i > 0; i--) {
+      r = (r * 1664525 + 1013904223) >>> 0;
+      const j = r % (i + 1);
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  // Sort each category's unseen words by priority order, then alphabetically
+  function sortedUnseenForCat(cat) {
+    const priority = CATEGORY_PRIORITY[cat] || [];
+    const words = VOCAB.filter(w => w.cat === cat && unseenSet.has(w.jp));
+    return words.sort((a, b) => {
+      const pa = priority.indexOf(a.jp);
+      const pb = priority.indexOf(b.jp);
+      if (pa !== -1 && pb !== -1) return pa - pb;
+      if (pa !== -1) return -1;
+      if (pb !== -1) return 1;
+      return 0; // keep original VOCAB order otherwise
+    });
+  }
+
+  // Build the daily batch using a structured slot system:
+  //   Slot A (3 words): top-priority verbs/core/expressions
+  //   Slot B (2 words): practical daily-life (food, transport, time, number)
+  //   Slot C (1 word):  grammar/conjunction/adverb (structural understanding)
+  //   Slot D (2 words): gap-fill from least-studied unlocked category
+
+  const result = [];
+  const usedJP = new Set();
+
+  function take(cat, n) {
+    const words = sortedUnseenForCat(cat).filter(w => !usedJP.has(w.jp));
+    const taken = words.slice(0, n);
+    taken.forEach(w => { usedJP.add(w.jp); result.push(w); });
+    return taken.length;
+  }
+
+  // Slot A — foundations (CORE, ESSENTIAL, EXPRESSION, GREETING)
+  const slotACats = seededShuffle(['CORE','ESSENTIAL','EXPRESSION','GREETING'].filter(c => unlockedCats.has(c)), seed);
+  let slotAFilled = 0;
+  for (const cat of slotACats) {
+    if (slotAFilled >= 3) break;
+    slotAFilled += take(cat, 1);
+  }
+  // Backfill slot A with VERB if foundations exhausted
+  if (slotAFilled < 3 && unlockedCats.has('VERB')) {
+    take('VERB', 3 - slotAFilled);
+  }
+
+  // Slot B — practical daily-life
+  const slotBCats = seededShuffle(
+    ['VERB','FOOD','EVERYDAY','TIME','TRANSPORT','NUMBER','DIRECTION','EMOTION','BODY','FAMILY']
+      .filter(c => unlockedCats.has(c)),
+    seed + 1
+  );
+  let slotBFilled = 0;
+  for (const cat of slotBCats) {
+    if (slotBFilled >= 2) break;
+    slotBFilled += take(cat, 1);
+  }
+
+  // Slot C — structural understanding (grammar / conjunctions / adverbs)
+  const slotCCats = ['GRAMMAR','CONJUNCTION','ADVERB','NAADJ','ADJ'].filter(c => unlockedCats.has(c));
+  for (const cat of slotCCats) {
+    if (result.length > slotAFilled + slotBFilled) break;
+    const taken = take(cat, 1);
+    if (taken) break;
+  }
+
+  // Slot D — gap-fill: find unlocked category with lowest % studied
+  const catStats = {};
+  VOCAB.forEach(w => {
+    if (!unlockedCats.has(w.cat)) return;
+    if (!catStats[w.cat]) catStats[w.cat] = { total: 0, seen: 0 };
+    catStats[w.cat].total++;
+    if (!unseenSet.has(w.jp)) catStats[w.cat].seen++;
+  });
+  const gapCats = Object.entries(catStats)
+    .filter(([, s]) => s.total >= 4 && s.seen / s.total < 0.5)
+    .sort((a, b) => (a[1].seen / a[1].total) - (b[1].seen / b[1].total))
+    .map(([cat]) => cat);
+  for (const cat of gapCats) {
+    if (result.length >= NEW_CARDS_PER_DAY) break;
+    take(cat, 1);
+  }
+
+  // Final fill — any unlocked unseen word (seeded shuffle for variety)
+  if (result.length < NEW_CARDS_PER_DAY) {
+    const allUnseen = VOCAB.filter(w => unlockedCats.has(w.cat) && unseenSet.has(w.jp) && !usedJP.has(w.jp));
+    const shuffled = seededShuffle(allUnseen, seed + 2);
+    for (const w of shuffled) {
+      if (result.length >= NEW_CARDS_PER_DAY) break;
+      result.push(w);
+    }
+  }
+
+  return result.slice(0, remaining);
+}
+
+function getNewCards() {
+  return getSmartNewCards();
 }
 
 function markNewCardSeen() {
@@ -3190,10 +3395,9 @@ function getTodayQueue() {
 //  STREAK ENGINE
 // ════════════════════════════════════════════════
 function todayStr() {
-  // Japan Standard Time = UTC+9. All daily resets (new cards, streak, recommendations)
-  // use JST so the day flips at midnight Tokyo time no matter where you are.
-  const jst = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  return `${jst.getUTCFullYear()}-${jst.getUTCMonth()}-${jst.getUTCDate()}`;
+  // Use the device's local time — resets at local midnight
+  const now = new Date();
+  return `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
 }
 function checkAndUpdateStreak() {
   try {
@@ -3937,8 +4141,12 @@ function learnKana(k, r) {
 // ════════════════════════════════════════════════
 //  WORD MODAL
 // ════════════════════════════════════════════════
-function openWord(idx) {
-  const w = VOCAB[idx];
+// openWord accepts either a jp string key OR a legacy numeric index
+function openWord(jpOrIdx) {
+  const w = typeof jpOrIdx === 'string'
+    ? VOCAB.find(v => v.jp === jpOrIdx)
+    : VOCAB[jpOrIdx];
+  if (!w) return;
   state.currentModalJP = w.jp;
   document.getElementById('mJP').textContent = w.jp;
   document.getElementById('mRom').textContent = w.rom;
@@ -4024,10 +4232,12 @@ function renderRecPanel(targetId) {
   const { newCards, dueCards, studiedNewToday } = getTodaysWords();
   const srs = loadSRS();
 
-  // JST reset countdown
-  const jst = new Date(Date.now() + 9*60*60*1000);
-  const hrsLeft = 23 - jst.getUTCHours();
-  const minsLeft = 59 - jst.getUTCMinutes();
+  // Local midnight countdown
+  const now = new Date();
+  const midnight = new Date(now); midnight.setHours(24,0,0,0);
+  const msLeft = midnight - now;
+  const hrsLeft = Math.floor(msLeft / 3600000);
+  const minsLeft = Math.floor((msLeft % 3600000) / 60000);
   const timeLeft = hrsLeft > 0 ? `${hrsLeft}h left` : `${minsLeft}m left`;
 
   const allNewDone = newCards.length === 0 && studiedNewToday >= NEW_CARDS_PER_DAY;
@@ -4045,7 +4255,7 @@ function renderRecPanel(targetId) {
         <div style="padding:24px 16px;text-align:center">
           <div style="font-size:36px;margin-bottom:10px">🎉</div>
           <div style="font-size:16px;font-family:'Shippori Mincho B1',serif;font-weight:500;margin-bottom:6px">All done for today</div>
-          <div style="font-size:12px;color:var(--ink2);line-height:1.65">${NEW_CARDS_PER_DAY} new words learned.<br>New words unlock at midnight (JST).</div>
+          <div style="font-size:12px;color:var(--ink2);line-height:1.65">${NEW_CARDS_PER_DAY} new words learned.<br>New words unlock at midnight.</div>
         </div>
       </div>`;
   } else {
@@ -4075,11 +4285,11 @@ function renderRecPanel(targetId) {
           ${showWords.map((w, n) => {
             const card = getSRSCard(srs, w.jp);
             const done = card.reps > 0;
-            const idx = VOCAB.indexOf(w);
+            const jpKey = w.jp.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
             return `
-            <div class="rec-word" onclick="openWord(${idx})" style="${done ? 'opacity:0.45' : ''}">
+            <div class="rec-word" onclick="openWord('${jpKey}')" style="${done ? 'opacity:0.45' : ''}">
               <div class="rec-num" style="${done ? 'color:var(--sage)' : ''}">${done ? '✓' : n+1}</div>
-              <div class="rec-jp" onclick="event.stopPropagation();speak('${w.jp.replace(/'/g,"\\'")}')">${w.jp}</div>
+              <div class="rec-jp" onclick="event.stopPropagation();speak('${jpKey}')">${w.jp}</div>
               <div class="rec-body">
                 <div class="rec-rom">${w.rom}</div>
                 <div class="rec-en">${w.en}</div>
@@ -4126,12 +4336,12 @@ function renderBrowser() {
   document.getElementById('browserCount').textContent =
     `${words.length} word${words.length!==1?'s':''}${query ? ` matching "${query}"` : ''}`;
   document.getElementById('browserList').innerHTML = words.map(w => {
-    const idx = VOCAB.indexOf(w);
     const card = getSRSCard(srs, w.jp);
     const srsClass = card.reps===0 ? 'new' : card.interval>=7 ? 'mature' : 'young';
     const srsLabel = card.reps===0 ? 'New' : `${card.interval}d`;
+    const jpKey = w.jp.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return `
-    <div class="bw-row" onclick="openWord(${idx})">
+    <div class="bw-row" onclick="openWord('${jpKey}')">
       <div class="bw-jp">${w.jp}</div>
       <div class="bw-mid">
         <div class="bw-rom">${w.rom}</div>
@@ -4139,7 +4349,7 @@ function renderBrowser() {
         <div class="bw-cat">${catLabel(w.cat)}</div>
       </div>
       <div class="bw-srs ${srsClass}">${srsLabel}</div>
-      <div class="bw-speak speak-btn" onclick="event.stopPropagation();speak('${w.jp.replace(/'/g,"\'")}')">
+      <div class="bw-speak speak-btn" onclick="event.stopPropagation();speak('${jpKey}')">
         <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
       </div>
     </div>`;
@@ -4169,6 +4379,25 @@ function renderBackupScreen() {
   document.getElementById('backupStatus').className = 'backup-status';
   document.getElementById('backupStatus').textContent = '';
   document.getElementById('backupAreaLabel').textContent = 'Backup data';
+
+  // Version + last export info
+  const buildDate = document.querySelector('meta[name="build-date"]')?.content || 'dev';
+  const lastExport = lsGet('jp_last_export', '');
+  const verEl = document.getElementById('versionInfo');
+  if (verEl) {
+    const buildStr = buildDate === '__BUILD_DATE__' || buildDate === 'dev'
+      ? 'local build'
+      : `v${buildDate.slice(0,8)}-${buildDate.slice(8,12)}`;
+    const exportStr = lastExport
+      ? `last export: ${new Date(lastExport).toLocaleDateString()}`
+      : 'never exported';
+    verEl.innerHTML = `
+      <span>📦 ${buildStr}</span>
+      <span style="color:${lastExport ? 'var(--ink3)' : 'var(--vermil2)'}">💾 ${exportStr}</span>
+      <span>${VOCAB.length} words</span>
+    `;
+  }
+
   renderBackupTTSKey();
   renderNotifToggle();
 }
@@ -4193,6 +4422,7 @@ function doExport() {
     const encoded = btoa(unescape(encodeURIComponent(json)));
     document.getElementById('backupArea').value = encoded;
     document.getElementById('backupAreaLabel').textContent = 'Copy this — paste it somewhere safe';
+    lsSet('jp_last_export', new Date().toISOString());
 
     // Try native share/copy
     if (navigator.clipboard) {
@@ -4326,10 +4556,9 @@ function renderAnalytics() {
   // Build date-keyed lookup from history
   const heatDates = {};
   Object.entries(history).forEach(([k, v]) => { heatDates[k] = v.reviewed; });
-  // Helper: same todayStr format but for any date
+  // Helper: same todayStr format but for any date — uses local time
   function dateKey(d) {
-    const jst = new Date(d.getTime() + 9*60*60*1000);
-    return `${jst.getUTCFullYear()}-${jst.getUTCMonth()}-${jst.getUTCDate()}`;
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   }
   // Build cells right-to-left from today
   let cellDates = [];
@@ -4656,6 +4885,32 @@ document.addEventListener('DOMContentLoaded', function() {
     state.learnedKana = (()=>{ try{ return JSON.parse(lsGet('jp_kana','[]'))||[]; }catch(e){ return []; } })();
     state.completedScenes = (()=>{ try{ return JSON.parse(lsGet('jp_scenes','[]'))||[]; }catch(e){ return []; } })();
     state.streak   = checkAndUpdateStreak();
+
+    // ── VOCAB VERSION GUARD ────────────────────────────────
+    // When you add new words, the vocab size changes.
+    // We stamp the current count; if it differs from last time,
+    // we invalidate stale daily-picks caches (they use indices)
+    // and clean orphan entries from jp_known.
+    // SRS cards are keyed by jp string so they survive untouched.
+    const vocabCount = String(VOCAB.length);
+    const prevCount  = lsGet('jp_vocab_count', '0');
+    if (prevCount !== vocabCount) {
+      // Clear today's picks cache (stale indices)
+      const today = todayStr();
+      lsSet('jp_rec_' + today, '');
+      lsSet('jp_rec_' + today + '_r', '');
+
+      // Clean jp_known: remove any entries not in current VOCAB
+      const jpSet = new Set(VOCAB.map(w => w.jp));
+      state.known = state.known.filter(jp => jpSet.has(jp));
+      lsSet('jp_known', JSON.stringify(state.known));
+
+      // Stamp new count
+      lsSet('jp_vocab_count', vocabCount);
+      console.log(`[それから] Vocab updated: ${prevCount} → ${vocabCount} words. Caches refreshed.`);
+    }
+    // ──────────────────────────────────────────────────────
+
     resetSession();
     buildQueue();
     renderHome();
@@ -4664,7 +4919,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Re-schedule daily notification if enabled (in case SW was killed overnight)
     if (lsGet('jp_notif_enabled','0') === '1') {
-      // Wait for SW to be ready
       setTimeout(() => scheduleNotification(lsGet('jp_notif_time','08:00')), 2000);
     }
   });

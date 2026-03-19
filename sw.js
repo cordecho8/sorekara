@@ -1,27 +1,32 @@
-// それから Service Worker — handles push notifications + offline cache
-const CACHE = 'sorekara-v1';
+// それから Service Worker
+// BUILD_DATE is injected by the GitHub Action deploy script.
+// It changes on every push, so the cache key auto-busts each deploy.
+const BUILD_DATE = '__BUILD_DATE__';
+const CACHE = 'sorekara-' + BUILD_DATE;
 
-// ── INSTALL: cache the app shell ──────────────────────────────────────
+// ── INSTALL ───────────────────────────────────────────────────────────
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(['/', '/index.html']))
-      .catch(() => {}) // fail silently if paths differ
+    caches.open(CACHE)
+      .then(c => c.addAll(['/', '/index.html', '/sw.js', '/manifest.json']))
+      .catch(() => {})
   );
 });
 
-// ── ACTIVATE: clean old caches ────────────────────────────────────────
+// ── ACTIVATE: nuke all old caches ─────────────────────────────────────
 self.addEventListener('activate', e => {
   e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => k !== CACHE).map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
-// ── FETCH: network-first, cache fallback ─────────────────────────────
+// ── FETCH: network-first, fallback to cache ───────────────────────────
 self.addEventListener('fetch', e => {
-  // Only cache same-origin GET requests
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
@@ -39,67 +44,56 @@ self.addEventListener('fetch', e => {
   );
 });
 
-// ── PUSH: receive push from server (future use) ───────────────────────
+// ── PUSH (future server-sent push) ────────────────────────────────────
 self.addEventListener('push', e => {
-  const data = e.data ? e.data.json() : {};
+  const data  = e.data ? e.data.json() : {};
   const title = data.title || 'それから';
   const body  = data.body  || 'Time to study!';
-  const icon  = data.icon  || '/icon-192.png';
   e.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon,
-      badge: '/icon-96.png',
-      tag: 'sorekara-daily',
-      renotify: true,
-      data: { url: data.url || '/' },
-      actions: [{ action: 'study', title: 'Study now' }]
+      icon:      '/icon-192.png',
+      badge:     '/icon-96.png',
+      tag:       'sorekara-daily',
+      renotify:  true,
+      data:      { url: data.url || '/' },
+      actions:   [{ action: 'study', title: 'Study now' }]
     })
   );
 });
 
-// ── NOTIFICATION CLICK ────────────────────────────────────────────────
+// ── NOTIFICATION CLICK ─────────────────────────────────────────────────
 self.addEventListener('notificationclick', e => {
   e.notification.close();
   const target = (e.notification.data && e.notification.data.url) || '/';
   e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clients => {
-      // Focus existing window if open
-      for (const client of clients) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          return client.focus();
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then(clients => {
+        for (const client of clients) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            return client.focus();
+          }
         }
-      }
-      // Otherwise open new window
-      if (self.clients.openWindow) return self.clients.openWindow(target);
-    })
+        if (self.clients.openWindow) return self.clients.openWindow(target);
+      })
   );
 });
 
-// ── SCHEDULED LOCAL NOTIFICATIONS via postMessage ────────────────────
-// The app sends us the schedule via postMessage; we store it and
-// use a periodic check (when SW wakes for other reasons) to fire it.
-// For reliable daily notifications we use the Notification API directly
-// from the app when it opens, scheduling future ones via setTimeout.
-// The SW handles the actual showNotification call.
-
+// ── LOCAL SCHEDULE (postMessage from app) ─────────────────────────────
 self.addEventListener('message', e => {
   if (!e.data || e.data.type !== 'SCHEDULE_NOTIFICATION') return;
-
   const { title, body, delayMs, tag } = e.data;
   if (!delayMs || delayMs < 0) return;
-
-  // Use a self-terminating setTimeout — works as long as SW stays alive
-  // (iOS keeps SW alive long enough for same-day scheduling)
   setTimeout(() => {
     self.registration.showNotification(title, {
       body,
-      icon: '/icon-192.png',
-      badge: '/icon-96.png',
-      tag: tag || 'sorekara-daily',
+      icon:     '/icon-192.png',
+      badge:    '/icon-96.png',
+      tag:      tag || 'sorekara-daily',
       renotify: true,
-      data: { url: '/' },
-      silent: false
+      data:     { url: '/' },
+      silent:   false
     });
   }, delayMs);
 });
